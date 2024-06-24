@@ -6,7 +6,7 @@ At the moment the workbench is in heavy development and its functionality may be
 **Current Features:\***
   - Parametric machine
   - Shape to wirepath algorithm
-  - Kerf adds to wirepath algorithm
+  - Kerf adds to wirepath
   - Links between wirepaths
   - Save G-Code file *.nc
   - Generate block cutting G-Code file *.nc
