@@ -3,7 +3,7 @@
 ![License](http://es.creativecommons.org/blog/wp-content/uploads/2013/04/by-sa_petit.png)
 
 
-This HWS (Hot Wire Slicer) is a fork of Javier Martínez's NiCr with the goal to export G-Code for a grbl-mega-5x controller.
+This HWS (Hot Wire Slicer) is a fork of Javier Martínez's NiCr with the goal to export G-Code for a grbl-mega-5x controling a hot wire foam cutter.
 
 The intended G-Code sender to be used is found at RCKieth website: https://rckeith.co.uk/download/grbl-hot-wire-firmware-and-software/
 
