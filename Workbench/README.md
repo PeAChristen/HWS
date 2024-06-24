@@ -27,9 +27,6 @@ At the moment the workbench is in heavy development and its functionality may be
   **mkdir ~/.FreeCAD/Mod/HWS**
 
   **mv ~/HWS/Workbench/\* ~/.FreeCAD/Mod/HWS/**
-  
-  Remove the HWS folder (if you only want the workbench)
-  **rm -rf HWS**
 
 
 ### Windows/Manual install (available to all users)
