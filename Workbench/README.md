@@ -1,23 +1,17 @@
-## NiCr: FreeCAD Workbench
+### HWS: FreeCAD Workbench
 
-This is a dedicated FreeCAD workbench to create and simulate toolpaths('wirepaths') for the NiCr machine.
-At the moment it is in heavy development and its functionality may be broken from time to time.
+This is a dedicated FreeCAD workbench to create and simulate toolpaths('wirepaths') for the HWS machine.
+At the moment the workbench is in heavy development and its functionality may be broken from time to time.
 
-####Workbench demo videos:
-
-DevUpdate 1 (current): https://www.youtube.com/watch?v=IMD8KxX-TPg
-
-DevUpdate 0: https://www.youtube.com/watch?v=8snH_p_onoQ
-
-
-### Current Features*:
+**Current Features:\***
   - Parametric machine
   - Shape to wirepath algorithm
   - Links between wirepaths
-  - Save wirepath as .nicr (GCode-like) file
+  - Save G-Code file *.nc
+  - Generate block cutting G-Code file *.nc
   - Wirepath animation
 
-  *some functionalities are not complete.
+  *functionalities are not complete and need more testing.
 
 ### Command line installation in Ubuntu/Mint/similar:
   Open one terminal window (usually **ctrl+alt+t** ) and copy-paste line by line:
@@ -26,24 +20,20 @@ DevUpdate 0: https://www.youtube.com/watch?v=8snH_p_onoQ
   **sudo apt-get install git**
   
   Clone repository:
-  **git clone https://github.com/JMG1/NiCr**
+  **git clone https://github.com/PeAChristen/HWS**
   
-  Move workbench folder to /.FreeCAD/Mod:
-  **mv ~/NiCr/Workbench ~/.FreeCAD/Mod**
+  Move content of workbench folder to /.FreeCAD/Mod/HWS:
   
-  Remove the NiCr folder (if you only want the workbench)
-  **rm -rf NiCr**
+  **mkdir ~/.FreeCAD/Mod/HWS**
+
+  **mv ~/HWS/Workbench/\* ~/.FreeCAD/Mod/HWS/**
   
-  That's all.
+  Remove the HWS folder (if you only want the workbench)
+  **rm -rf HWS**
 
 
 ### Windows/Manual install (available to all users)
-  Download the repository (https://github.com/JMG1/NiCr) as ZIP file and extract the folder 'Workbench' 
+  Download the repository (ttps://github.com/PeAChristen/HWS) as ZIP file and extract the folder 'Workbench' 
   inside **C:\Program Files\FreeCAD\Mod** for Windows or **/usr/lib/FreeCAD/Mod** for Debian-like systems.
-
-### What to do now?
-  Check the file NiCrExample.fcstd that is inside the workbench. It contains an example of wirepath, links between 
-  paths and more.
-  
 
 
