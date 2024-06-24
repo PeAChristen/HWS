@@ -30,7 +30,7 @@ At the moment the workbench is in heavy development and its functionality may be
 
 
 ### Windows/Manual install (available to all users)
-  Download the repository (ttps://github.com/PeAChristen/HWS) as ZIP file and extract the folder 'Workbench' 
+  Download the repository (https://github.com/PeAChristen/HWS) as ZIP file and extract the folder 'Workbench' 
   inside **C:\Program Files\FreeCAD\Mod** for Windows or **/usr/lib/FreeCAD/Mod** for Debian-like systems.
 
 
