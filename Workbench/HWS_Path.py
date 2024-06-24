@@ -1726,7 +1726,12 @@ def saveGCodeFile():
     #print(FreeCAD.ConfigGet('UserHomePath'))
     
     #save_directory = [FreeCAD.ConfigGet('UserHomePath')+"/Skrivbord/testG93", ".nc"]
-    directory = FreeCAD.ConfigGet("UserHomePath") #directory = FreeCAD.ConfigGet("UserAppData")
+    if HWS_Mch.SaveFilePath != '':
+        directory = HWS_Mch.SaveFilePath
+    else:
+        directory = FreeCAD.ConfigGet("UserHomePath") #directory = FreeCAD.ConfigGet("UserAppData")
+        HWS_Mch.SaveFilePath = FreeCAD.ConfigGet("UserHomePath") #directory = FreeCAD.ConfigGet("UserAppData")
+    
     FCW = FreeCADGui.getMainWindow()
   
     save_directory = QtGui.QFileDialog.getSaveFileName(FCW,

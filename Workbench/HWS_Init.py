@@ -285,8 +285,13 @@ class cutGCode():
         #move to 0
         lines += '\nG0 X0 Y0 A0 Z0'
         lines += '\nG94'
-
-        directory = FreeCAD.ConfigGet("UserHomePath")
+        
+        if self.a.SaveFilePath != '':
+            directory = self.a.SaveFilePath
+        else:
+            directory = FreeCAD.ConfigGet("UserHomePath")
+            self.a.SaveFilePath = directory
+            
         FCW = FreeCADGui.getMainWindow()
         save_directory = QtGui.QFileDialog.getSaveFileName(FCW,
                                                         'Save G-Code as:',
@@ -1465,25 +1470,27 @@ class ConfigureTableNFoam:
         #TODO load HWS.cfg into machine when loading ui for cfg of table and foam
         #TODO alwase update HWS.cfg file when cfg of table and foam changes
         
-        
         dir_sep = os.sep
-        #print(FreeCAD.getHomePath())
-        #print(FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep+'HWS.cfg')    
-
-        #self.cfg_file_dir = FreeCAD.getUserAppDataDir()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep+'HWS.cfg'
-        #windows -> #
-        self.cfg_file_dir = FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep+'HWS.cfg'
-
         
- 
-        
-        #HWS_SM.default_table_cfg = data[0]
-        #self.table_and_foam_config = data
+        if self.m.PathToHWS_cfg != '':
+            self.cfg_file_dir = self.m.PathToHWS_cfg+'HWS.cfg'
+        else:
+            #linux -> 
+            self.cfg_file_dir = FreeCAD.getUserAppDataDir()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep+'HWS.cfg'
+            self.m.PathToHWS_cfg =FreeCAD.getUserAppDataDir()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep
+            #windows -> 
+            #self.cfg_file_dir = FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep+'HWS.cfg'
+            #self.m.PathToHWS_cfg = FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep
             
         
 
-        
+        #print(FreeCAD.getHomePath())
+        #print(FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep+'HWS.cfg')    
 
+                
+        #HWS_SM.default_table_cfg = data[0]
+        #self.table_and_foam_config = data
+        
 
         self.sel = FreeCAD.Gui.Selection.getSelectionEx()
         

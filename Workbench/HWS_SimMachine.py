@@ -49,6 +49,14 @@ class HWS_Machine:
         table_cfg = []
         table_cfg.append(json.JSONEncoder().encode(default_table_cfg))
         default_cut_cfg = json.JSONEncoder().encode([300, 100, 100, 10])
+        
+        obj.addProperty( 'App::PropertyString',
+                         'PathToHWS_cfg',
+                         'Paths' ).PathToHWS_cfg = ''
+                         
+        obj.addProperty( 'App::PropertyString',
+                         'SaveFilePath',
+                         'Paths' ).SaveFilePath = ''
 
         obj.addProperty( 'App::PropertyInteger',
                          'TableIndex',
