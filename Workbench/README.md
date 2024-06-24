@@ -1,4 +1,4 @@
-### HWS: FreeCAD Workbench
+### HWS: A FreeCAD Workbench
 
 This is a FreeCAD workbench to create and simulate toolpaths('wirepaths') for the grbl-mega-5x machine.
 At the moment the workbench is in heavy development and its functionality may be broken from time to time.
