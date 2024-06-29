@@ -65,6 +65,7 @@ class HWS_Workbench(Workbench):
         FreeCAD.t = self.appendToolbar('HWS_Workbench', self.tools)
         self.appendMenu('HWS', self.tools)
         #TODO load config table n foam when WB loads
+        HWS_Init.load_hws_cfg()
         FreeCAD.Console.PrintMessage('HWS workbench loaded\n')
         
     def Activated(self):

@@ -56,11 +56,12 @@ def move_correct_obj(obj):
         #print(FreeCAD.ActiveDocument.getObjectsByLabel(obj))
         return FreeCAD.ActiveDocument.getObjectsByLabel(obj)[0]
 
-
+    #print(str_pieces[0])
     if len(str_pieces) <= 1:
         for o in FreeCAD.ActiveDocument.Objects:
             if str_pieces[0] in o.Label:
-                o.touch()  
+                o.touch()
+        #print(FreeCAD.ActiveDocument.getObject(str_pieces[0]))  
         return FreeCAD.ActiveDocument.getObject(str_pieces[0])
     
     for o in FreeCAD.ActiveDocument.Objects:
@@ -68,7 +69,9 @@ def move_correct_obj(obj):
         #print(o.Label, o.InList)
         if str_pieces[1] in o.Label:
             o.touch()
-            
+    
+    #print(str_pieces[1])
+    #print(FreeCAD.ActiveDocument.getObject(str_pieces[1]))         
     return FreeCAD.ActiveDocument.getObject(str_pieces[1])
 
     #print("can't locate correct object, try to create the wire path first")
@@ -142,13 +145,17 @@ class cutGCode():
             return
         elif len(objs) > 0:
             for obj in objs:
-                
+
+                #print(obj.Name, obj.Label)
+                """
                 correct_obj = move_correct_obj(obj.Label)
-                if correct_obj != False:
+                if correct_obj != False or correct_obj != None:
                     obj = correct_obj
                     #print(correct_obj.Name)
                 else:
                     return
+                """
+                #print(obj.Name)
 
                 if hasattr(obj, "Shape"):
                     s = obj.Shape
@@ -158,6 +165,7 @@ class cutGCode():
                     s = obj.Points
                 else:
                     print("Can't recordnice selected object")
+                    print(obj.TypeId)
                     return
 
                 self.bBox = s.BoundBox
@@ -185,6 +193,8 @@ class cutGCode():
         self.cut_ui.block_height.editingFinished.connect(self.update_cut_data)
         self.cut_ui.block_depth.editingFinished.connect(self.update_cut_data)
         self.cut_ui.clearance.editingFinished.connect(self.update_cut_data)
+        #self.cut_ui.use_kerf.stateChanged.connect(self.use_base_end_to_cut)
+        self.cut_ui.cut_at_x_zero.stateChanged.connect(self.uncheck_kerf)
 
         def handleButtonClick(button):
             role = self.cut_ui.buttonBox.buttonRole(button)
@@ -197,6 +207,25 @@ class cutGCode():
         self.cut_ui.buttonBox.clicked.connect(handleButtonClick)
         self.cut_Dialog.show()
     
+    def uncheck_kerf(self):
+        if self.cut_ui.cut_at_x_zero.isChecked():
+            self.cut_ui.use_kerf.setEnabled(False)
+            self.cut_ui.cutAtBase.setEnabled(False)
+            self.cut_ui.position.setEnabled(False)
+            self.cut_ui.block_depth.setEnabled(False)
+            self.cut_ui.radioButton.setEnabled(False)
+            self.cut_ui.radioButton_Y.setEnabled(False)
+            self.cut_ui.radioButton_Z.setEnabled(False)
+        else:
+            self.cut_ui.use_kerf.setEnabled(True)
+            self.cut_ui.cutAtBase.setEnabled(True)
+            self.cut_ui.position.setEnabled(True)
+            self.cut_ui.block_depth.setEnabled(True)
+            self.cut_ui.radioButton.setEnabled(True)
+            self.cut_ui.radioButton_Y.setEnabled(True)
+            self.cut_ui.radioButton_Z.setEnabled(True)
+        
+
     def handleRadioButton_X(self,selected):
         if selected:
             #print('X')
@@ -237,13 +266,21 @@ class cutGCode():
         self.a.CutConfig = tmp_json_data
 
     def saveCutGCode(self):
+
+        use_kerf = self.cut_ui.use_kerf.isChecked()
+        cut_at_X_zero = self.cut_ui.cut_at_x_zero.isChecked()
         
         wP = FreeCAD.ActiveDocument.WirePath
         foam_from_machine = self.a.FoamConfig        
         foam_cfg = json.JSONDecoder().decode(foam_from_machine[wP.FoamIndex])
         table_from_machine = self.a.TableConfig 
         table_cfg = json.JSONDecoder().decode(table_from_machine[self.a.TableIndex])
-        kerf = foam_cfg[1]
+        
+        if use_kerf:
+            kerf = foam_cfg[1] / 2
+        else:
+            kerf = 0
+
         heat = foam_cfg[4] * 10
         data = [float(self.cut_ui.position.text()), 
                 float(self.cut_ui.block_height.text()), 
@@ -256,35 +293,52 @@ class cutGCode():
         time_min = time_sec / 60
         time_g93 = 1 / time_min
         f = str(time_g93)
-        
-        lines = 'G21'
-        lines += '\nG17'
-        lines += '\nG91'
-        lines += '\nG93'
-        #move y to tabel top (30)
-        lines += '\nG0 X0 Y'+str(table_cfg[8]+data[3])+' A0 Z'+str(table_cfg[8]+data[3]) 
-        #move x to posistion+depth 
-        lines += '\nG0 X'+str(data[0] + data[2])+' Y0 A'+str(data[0] + data[2])+' Z0'
-        lines += '\nM0 (Place block against wire)'
-        #move x clearance
-        lines += '\nG0 X'+str(data[3])+' Y0 A'+str(data[3])+' Z0'
-        #move y block height (130)
-        lines += '\nG0 X0 Y'+str(data[1])+' A0 Z'+str(data[1])
-        #move x back block depth + 1/2 kerf
-        lines += '\nG0 X-'+str(data[2]+(kerf/2))+' Y0 A-'+str(data[2]+(kerf/2))+' Z0'
-        lines += '\nM3 S'+str(heat)
-        #move y down block height + clearance * 2 (10)
-        lines += '\nG1 X0 Y-'+str(cut_distans)+' A0 Z-'+str(cut_distans)+' F'+f
-        lines += '\nM5'
-        lines += '\nM0 (Remove block)'
-        #move y clearans * 2 (30)
-        lines += '\nG0 X0 Y'+str(data[3]*2)+' A0 Z'+str(data[3]*2)        
-        #move x back to 0
-        lines += '\nG0 X-'+str(data[0]-(kerf/2)+data[3])+' Y0 A-'+str(data[0]-(kerf/2)+data[3])+' Z0'
-        lines += '\nG90'
-        #move to 0
-        lines += '\nG0 X0 Y0 A0 Z0'
-        lines += '\nG94'
+
+        if cut_at_X_zero:
+            lines = 'G21'
+            lines += '\nG17'
+            lines += '\nG91'
+            lines += '\nG93'
+            #move y to tabel top + block height + clearence (130)
+            lines += '\nG0 X0 Y'+str(table_cfg[8]+data[1]+data[3])+' A0 Z'+str(table_cfg[8]+data[1]+data[3])
+            lines += '\nM0 (Place block under wire)'
+            lines += '\nM3 S'+str(heat)
+            #move y down block height + clearance * 2 (10)
+            lines += '\nG1 X0 Y-'+str(cut_distans)+' A0 Z-'+str(cut_distans)+' F'+f
+            lines += '\nM5'
+            #move to 0
+            lines += '\nG90'
+            lines += '\nG0 X0 Y0 A0 Z0'
+            lines += '\nG94'
+        else:
+            lines = 'G21'
+            lines += '\nG17'
+            lines += '\nG91'
+            lines += '\nG93'
+            #move y to tabel top + block height - clearence (110)
+            lines += '\nG0 X0 Y'+str(table_cfg[8]+data[1]-data[3])+' A0 Z'+str(table_cfg[8]+data[1]-data[3]) 
+            #move x to posistion+depth
+            lines += '\nG0 X'+str(data[0] + data[2])+' Y0 A'+str(data[0] + data[2])+' Z0'
+            lines += '\nM0 (Place block against wire)'
+            #move x clearance
+            lines += '\nG0 X'+str(data[3])+' Y0 A'+str(data[3])+' Z0'
+            #move y clearence * 2 (130)
+            lines += '\nG0 X0 Y'+str(data[3] * 2)+' A0 Z'+str(data[3] * 2)
+            #move x back block depth + 1/2 kerf
+            lines += '\nG0 X-'+str(data[2]+data[3]+(kerf))+' Y0 A-'+str(data[2]+data[3]+(kerf))+' Z0'
+            lines += '\nM3 S'+str(heat)
+            #move y down block height + clearance * 2 (10)
+            lines += '\nG1 X0 Y-'+str(cut_distans)+' A0 Z-'+str(cut_distans)+' F'+f
+            lines += '\nM5'
+            lines += '\nM0 (Remove block)'
+            #move y clearans * 2 (30)
+            lines += '\nG0 X0 Y'+str(data[3]*2)+' A0 Z'+str(data[3]*2)        
+            #move x back to 0
+            lines += '\nG0 X-'+str(data[0]-(kerf))+' Y0 A-'+str(data[0]-(kerf))+' Z0'
+            #move to 0
+            lines += '\nG90'
+            lines += '\nG0 X0 Y0 A0 Z0'
+            lines += '\nG94'
         
         if self.a.SaveFilePath != '':
             directory = self.a.SaveFilePath
@@ -1065,7 +1119,7 @@ class AlignToObjZMin():
     
     def GetResources(self):
         return {'Pixmap': __dir__ + '/icons/AlignToObjZMin.svg',
-                'MenuText': 'Align to onject z min',
+                'MenuText': 'Align to object z min',
                 'ToolTip': 'Move selected objects to z min of first selection'}
         
     def IsActive(self):
@@ -1137,7 +1191,7 @@ class AlignToObjZMax():
     
     def GetResources(self):
         return {'Pixmap': __dir__ + '/icons/AlignToObjZMax.svg',
-                'MenuText': 'Align to onject z max',
+                'MenuText': 'Align to object z max',
                 'ToolTip': 'Move selected objects to z max of first selection'}
         
     def IsActive(self):
@@ -1247,7 +1301,7 @@ class AlignToObjYMin():
     
     def GetResources(self):
         return {'Pixmap': __dir__ + '/icons/AlignToObjYMin.svg',
-                'MenuText': 'Align to onject y min',
+                'MenuText': 'Align to object y min',
                 'ToolTip': 'Move selected objects to y min of first selection'}
         
     def IsActive(self):
@@ -1323,7 +1377,7 @@ class AlignToObjYMax():
     
     def GetResources(self):
         return {'Pixmap': __dir__ + '/icons/AlignToObjYMax.svg',
-                'MenuText': 'Align to onject y max',
+                'MenuText': 'Align to object y max',
                 'ToolTip': 'Move selected objects to y max of first selection'}
         
     def IsActive(self):
@@ -1435,6 +1489,122 @@ def open_chose_foam_dialog(s, o):
     
     s.foam_Dialog.show()
 
+def load_hws_cfg():
+    try:
+        m =  FreeCAD.ActiveDocument.HWS_Machine
+    except:
+        return
+    
+    dir_sep = os.sep
+
+    if os.name == 'nt':
+        dir = FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep
+        cfg_file_dir = dir+'HWS.cfg'
+        m.PathToHWS_cfg = dir 
+    elif os.name == 'posix':
+        dir = FreeCAD.getUserAppDataDir()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep
+        cfg_file_dir = dir+'HWS.cfg'
+        m.PathToHWS_cfg = dir
+    else:
+        return False
+
+    
+    if os.path.isfile(cfg_file_dir):
+        HWS_file = open(cfg_file_dir, 'r')
+        data = []
+        for line in HWS_file:
+            data = json.JSONDecoder().decode(line)
+        HWS_file.close()
+ 
+        #tmp_str = []
+        #for l in data[0]:
+        #    tmp_str.append(json.JSONEncoder().encode(l))
+        #m.TableConfig = tmp_str
+        replace_table_cfg_in_machine(data[0])
+ 
+        tmp_str = []
+        for l in data[1]:
+            tmp_str.append(json.JSONEncoder().encode(l))
+        m.FoamConfig = tmp_str
+        
+        print("Loaded HWS.cfg")
+        return 
+    else:
+        return False
+    
+def replace_table_cfg_in_machine(data):
+    try:
+        m =  FreeCAD.ActiveDocument.HWS_Machine
+    except:
+        return    
+    
+    tmp_json_data = []
+    for fm in data:
+        tmp_json_data.append(json.JSONEncoder().encode(fm))
+    m.TableConfig = tmp_json_data
+    
+    #update relevent data to freecad objects
+    #tabel
+    i = m.TableIndex
+    #current_table = json.JSONDecoder().decode(self.m.TableConfig[i])
+    #print(data)
+    
+
+    m.ZLength = data[i][1]
+    m.XLength = data[i][2]
+    m.YLength = data[i][3]
+
+
+    #wire
+    Z0 = m.FrameDiameter*1.1*0
+    ZL = m.ZLength
+    Z1 = ZL + Z0 - m.FrameDiameter*0.2
+    wire = FreeCAD.ActiveDocument.Wire
+    wire.Shape = Part.makeLine((0,0,Z0), (0,0,Z1))
+    
+    #base #TODO Recenter after change
+    b = FreeCAD.ActiveDocument.Base
+    if(data[i][9] != b.Width):
+        center_base_z = True
+    else:
+        center_base_z = False
+    
+    b.Length = data[i][7]
+    b.Width = data[i][8]
+    b.Height = data[i][9]
+    b.Placement.Base.x = data[i][10]
+
+
+    
+    if(center_base_z):
+        if hasattr(b, "Shape"):
+            s = b.Shape
+        elif hasattr(b, "Mesh"):
+            s = b.Mesh 
+        elif hasattr(b, "Points"):
+            s = b.Points
+        else:
+            print("Can't recordnice base object")
+            return
+        
+        bBox = s.BoundBox
+        boundBoxVector = FreeCAD.Vector(bBox.XMin,bBox.YMin,bBox.ZMin)
+        null_placement = adjusted_Global_Placement(s, boundBoxVector)
+        b.Placement.Base.z = null_placement.Base.z
+
+        if hasattr(b, "Shape"):
+            s = b.Shape
+        elif hasattr(b, "Mesh"):
+            s = b.Mesh 
+        elif hasattr(obj, "Points"):
+            s = b.Points
+        
+        bBox = s.BoundBox
+        m_z_center = m.ZLength / 2
+        new_z = (m_z_center - (bBox.ZLength / 2)) - bBox.ZMin
+        
+        b.Placement.Base.z = new_z
+
 class ConfigureTableNFoam:
     #TODO Add Foam cut speed properties
     def __init__(self):
@@ -1481,7 +1651,8 @@ class ConfigureTableNFoam:
             #windows -> 
             #self.cfg_file_dir = FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep+'HWS.cfg'
             #self.m.PathToHWS_cfg = FreeCAD.getHomePath()+'Mod'+dir_sep+'HotWireSlicer'+dir_sep
-            
+        
+        #load_hws_cfg()
         
 
         #print(FreeCAD.getHomePath())
@@ -1493,6 +1664,10 @@ class ConfigureTableNFoam:
         
 
         self.sel = FreeCAD.Gui.Selection.getSelectionEx()
+
+        self.foam_cfg = [] #self.table_and_foam_config[1]
+        for f_cfg in self.m.FoamConfig:
+            self.foam_cfg.append(json.JSONDecoder().decode(f_cfg))
         
         if len(self.sel) > 0:
             for s in self.sel:
@@ -1510,10 +1685,6 @@ class ConfigureTableNFoam:
         self.table_cfg = [] #self.table_and_foam_config[0]
         for t_cfg in self.m.TableConfig:
             self.table_cfg.append(json.JSONDecoder().decode(t_cfg))
-
-        self.foam_cfg = [] #self.table_and_foam_config[1]
-        for f_cfg in self.m.FoamConfig:
-            self.foam_cfg.append(json.JSONDecoder().decode(f_cfg))
 
 
         if os.path.isfile(self.cfg_file_dir):
@@ -1641,7 +1812,7 @@ class ConfigureTableNFoam:
                               float(self.ui.Base_XOffset.text()),
                               float(self.ui.X_margin.text())])
         
-        self.replace_table_cfg_in_machine(self.table_cfg)
+        replace_table_cfg_in_machine(self.table_cfg)
 
     def update_foam_data(self):
         f_index = self.ui.Foam.currentIndex() - 1
@@ -1672,7 +1843,7 @@ class ConfigureTableNFoam:
                               float(self.ui.Base_XOffset.text()),
                               float(self.ui.X_margin.text())]
         
-        self.replace_table_cfg_in_machine(self.table_cfg)
+        replace_table_cfg_in_machine(self.table_cfg)
 
     def remove_foam_data(self, foam_index):
         U_I = self.ui
@@ -1689,74 +1860,6 @@ class ConfigureTableNFoam:
         #update relevent data to freecad objects and recomputer
         #pass
     
-    def replace_table_cfg_in_machine(self, data):
-        
-        tmp_json_data = []
-        for fm in data:
-            tmp_json_data.append(json.JSONEncoder().encode(fm))
-        self.m.TableConfig = tmp_json_data
-        
-        #update relevent data to freecad objects
-        #tabel
-        i = self.m.TableIndex
-        #current_table = json.JSONDecoder().decode(self.m.TableConfig[i])
-        #print(data)
-        
-
-        self.m.ZLength = data[i][1]
-        self.m.XLength = data[i][2]
-        self.m.YLength = data[i][3]
-
-
-        #wire
-        Z0 = self.m.FrameDiameter*1.1*0
-        ZL = self.m.ZLength
-        Z1 = ZL + Z0 - self.m.FrameDiameter*0.2
-        wire = FreeCAD.ActiveDocument.Wire
-        wire.Shape = Part.makeLine((0,0,Z0), (0,0,Z1))
-        
-        #base #TODO Recenter after change
-        b = FreeCAD.ActiveDocument.Base
-        if(data[i][9] != b.Width):
-            center_base_z = True
-        else:
-            center_base_z = False
-        
-        b.Length = data[i][7]
-        b.Width = data[i][8]
-        b.Height = data[i][9]
-        b.Placement.Base.x = data[i][10]
-
-
-       
-        if(center_base_z):
-            if hasattr(b, "Shape"):
-                s = b.Shape
-            elif hasattr(b, "Mesh"):
-                s = b.Mesh 
-            elif hasattr(b, "Points"):
-                s = b.Points
-            else:
-                print("Can't recordnice base object")
-                return
-            
-            bBox = s.BoundBox
-            boundBoxVector = FreeCAD.Vector(bBox.XMin,bBox.YMin,bBox.ZMin)
-            null_placement = adjusted_Global_Placement(s, boundBoxVector)
-            b.Placement.Base.z = null_placement.Base.z
-
-            if hasattr(b, "Shape"):
-                s = b.Shape
-            elif hasattr(b, "Mesh"):
-                s = b.Mesh 
-            elif hasattr(obj, "Points"):
-                s = b.Points
-            
-            bBox = s.BoundBox
-            m_z_center = self.m.ZLength / 2
-            new_z = (m_z_center - (bBox.ZLength / 2)) - bBox.ZMin
-            
-            b.Placement.Base.z = new_z
         
 
     def save_HWS_cfg_to_file(self):
@@ -1853,7 +1956,7 @@ class ConfigureTableNFoam:
         role = self.ui.buttonBox.buttonRole(button)
         if str(role) == "PySide2.QtWidgets.QDialogButtonBox.ButtonRole.ApplyRole":
             ##TODO Upadte to Machine and HWS.cfg file
-            self.replace_table_cfg_in_machine(self.table_cfg)
+            replace_table_cfg_in_machine(self.table_cfg)
             self.replace_foam_cfg_in_machine(self.foam_cfg)
             
             cfg_data = json.JSONEncoder().encode([self.table_cfg] + [self.foam_cfg])
@@ -1927,6 +2030,8 @@ class CreateHWSMachine:
         w = Part.makeLine((0,0,Z0), (0,0,Z1))
         wire.Shape = w
         wire.ViewObject.LineColor = (0,51,254)
+
+        load_hws_cfg()
 """
 def createExtraShapePath(org_obj_name, ext_path=[0,None]):
     #ext_path[0] = index of ext_path, [1] = path
@@ -1980,10 +2085,14 @@ class CreateShapePath:
             # create shapepath object
             selObj = selection[i].Object
             #if part is part of body select top body
+            #TODO exclude if in a groupe
             if len(selObj.InListRecursive) > 0:
                 for il in selObj.InListRecursive:
-                    selObj = il
+                    if il.TypeId != "App::DocumentObjectGroup":
+                        #print(il.TypeId)
+                        selObj = il
             
+            #print(selObj.Name, selObj.Label)
             shapepath_name = 'ShapePath_' + selObj.Name
             #print(shapepath_name)
             shapepathobj = FreeCAD.ActiveDocument.addObject('Part::FeaturePython', shapepath_name)

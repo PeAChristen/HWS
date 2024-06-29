@@ -127,7 +127,6 @@ class HWS_Machine:
         obj.Proxy = self
         self.addMachineToDocument( obj.FrameDiameter, obj.XLength, obj.YLength, obj.ZLength, created=False )
 
-
     def onChanged(self, fp, prop):
         try:
             if prop == 'XLength' or prop == 'YLength' or prop == 'ZLength' or prop == 'FrameDiameter':

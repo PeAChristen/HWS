@@ -142,13 +142,19 @@ class InnerPath:
                         'Reverse',
                         'Path Settings',
                         'Reverses the cut direction of this path').Reverse = False
-        """       
-        
+        """
+
+        obj.addProperty('App::PropertyBool',
+                'InverseKerf',
+                'Path Settings',
+                'Shows the path projected to the machine sides').InverseKerf = False
+
+        """
         obj.addProperty('App::PropertyBool',
                         'ShowMachinePath',
                         'Visualization',
                         'Shows the path projected to the machine sides')
-        
+        """
         """
         obj.addExtension('Part::AttachExtensionPython')
 
@@ -210,10 +216,16 @@ class ShapePath:
                         'Reverses the cut direction of this path').Reverse = False
         
         obj.addProperty('App::PropertyBool',
+                        'InverseKerf',
+                        'Path Settings',
+                        'Shows the path projected to the machine sides').InverseKerf = False
+
+        """
+        obj.addProperty('App::PropertyBool',
                         'ShowMachinePath',
                         'Visualization',
                         'Shows the path projected to the machine sides')
-
+        """
         obj.Proxy = self
         
         shape = FreeCAD.ActiveDocument.getObject(obj.ShapeName)
@@ -253,9 +265,10 @@ class ShapePath:
         FreeCAD.ActiveDocument.recompute()
 
     def execute(self, fp):
-        
+        #print('from class shapepath',fp.ShapeName, fp.Lable, fp.Name)
+        #print(fp.TypeId)
         shape = FreeCAD.ActiveDocument.getObject(fp.ShapeName)
-        
+        #print(fp.ShapeName)
         fp_parts = []
         fs_inner_parts_Path_AB = []
         fp_parts, fs_inner_parts_Path_AB  = ShapeToHWSPath(shape, fp.PointDensity, reverse=fp.Reverse)
@@ -322,6 +335,8 @@ class ShapePath:
 
                 WPFolder = FreeCAD.ActiveDocument.WirePath
                 WPFolder.addObject(inner_shapepathobj[i-1])
+
+                
             #tree view
         HWS_SM.clearWireTrack()
 
@@ -1063,9 +1078,11 @@ def addKerf2Faces(points, sel_obj, inner_part_index, foam_type=None, inner_part=
         foam_type = ["Default", 1.6, 4.0, 1.9, 75] #[0, 'EXP Wire 0.5', True, [4.5, 20], [2, 20], 0.6, 0.8]
         #"Default", 1.6, 4.0, 1.9, 75
     
-    speed = float(foam_type[2])
-    kerf1 = float(foam_type[1])
-    kerf2 = float(foam_type[3])   #kerf at profile 2/5 length of big profile length
+    #speed = float(foam_type[2])
+    kerf1 = float(foam_type[1]) / 2
+    kerf2 = float(foam_type[3]) / 2  #kerf at profile 2/5 length of big profile length
+    
+
 
 
     w_list0 = []
@@ -1081,15 +1098,17 @@ def addKerf2Faces(points, sel_obj, inner_part_index, foam_type=None, inner_part=
 
     length1 = wire0.Length
     length2 = wire1.Length
+    
+    
 
     #kerf1 length is at 100% of profile A length
     #kerf2 length is at  40% of profile A length
     #what is kerf at a given length diffrence?
 
-    if kerf1 != 0 or kerf2 != 0:
+    if (kerf1 != 0 or kerf2 != 0) and kerf1 != kerf2:
 
-        kerf_one = kerf1 / 2
-        kerf_two = kerf2 / 2
+        kerf_one = kerf1
+        kerf_two = kerf2
         #print('kerf1:', kerf_one)
         #print('kerf2:', kerf_two)
 
@@ -1123,8 +1142,14 @@ def addKerf2Faces(points, sel_obj, inner_part_index, foam_type=None, inner_part=
         else:
             tip_kerf = ((length2/length1) - m)/k
     else:
-        root_kerf = 0
-        tip_kerf = 0
+        if kerf1 == 0 or kerf2 == 0:
+            root_kerf = 0
+            tip_kerf = 0
+            kerf_one = root_kerf
+        else:
+            root_kerf = kerf1
+            tip_kerf = root_kerf
+            kerf_one = root_kerf
     
     #print(tip_kerf)
 
@@ -1160,8 +1185,10 @@ def addKerf2Faces(points, sel_obj, inner_part_index, foam_type=None, inner_part=
     openResult = False
     intersection = False
     
+    #print(FreeCAD.ActiveDocument.getObjectsByLabel("ShapePath_"+sel_obj.Name)[0].InverseKerf)
+
     #add kerf negative to inner part
-    if inner_part:
+    if inner_part or FreeCAD.ActiveDocument.getObjectsByLabel("ShapePath_"+sel_obj.Name)[0].InverseKerf:
         root_kerf = kerf_one * -1
         tip_kerf = tip_kerf * -1
     else:
@@ -1194,7 +1221,7 @@ def addKerf2Faces(points, sel_obj, inner_part_index, foam_type=None, inner_part=
                 offset2d_face0 = wire0.makeOffset2D(root_kerf,join_on_fail,fill,openResult,intersection)#,join,fill,openResult,intersection) # go fast as root on both with same kerf
                 offset2d_face1 = wire1.makeOffset2D(root_kerf,join_on_fail,fill,openResult,intersection)#,join,fill,openResult,intersection)
         except:
-            print('Error, Check for points to close to each other!')
+            FreeCAD.Console.PrintMessage('Error, Check for vertexes too close to each other!')
             return
      
     kerf_points = []
@@ -1306,6 +1333,22 @@ def ShapeToHWSPath(selected_object, precision, reverse=False): #, inner_shape=Fa
         b_i = 0
         cm_a_found = False
         cm_b_found = False
+
+        """
+        #Old Algoritm
+        for vertex_a in face_a.Vertexes:
+            for vertex_b in face_b.Vertexes:
+                if (vertex_a.Point - vertex_b.Point).Length < 0.01:
+                    cm_a = vertex_a
+                    for v_a in face_a.Vertexes:
+                        for v_b in face_b.Vertexes:
+                            if (v_a.Point-cm_a.Point).Length > 0.001:
+                                if (v_a.Point - v_b.Point ).Length < 0.001:
+                                    cm_b = v_a
+                                    return [cm_a, cm_b]
+        """
+        # new algoritm
+        #print(len(face_a.Vertexes),len(face_b.Vertexes))
         for a_i in range(len(face_a.Vertexes)):
             
             for b_i in range(len(face_b.Vertexes)):
@@ -1321,7 +1364,15 @@ def ShapeToHWSPath(selected_object, precision, reverse=False): #, inner_shape=Fa
                 if cm_a_found and cm_b_found:
                     cm = [cm_a, cm_b]
                     return cm
- 
+        
+        if a_i < 4 or b_i < 4 or a_i > 4 or b_i > 4:
+            print('error when comparing number of points in faces, should be 4 by 4',a_i, b_i)
+            print('try to find loose points or lines in the shape')
+            print('and remove them')
+        #return [cm_a, cm_b]
+        
+
+
     def last_part_of_ToHWSPath(c_faces, p_faces, resoluiton, inner_part_index, is_inner_part):
 
         # discretize length
@@ -1397,12 +1448,12 @@ def ShapeToHWSPath(selected_object, precision, reverse=False): #, inner_shape=Fa
             traj_data = [ TA, TB ]
             #print(i, traj_data)
             trajectory.append(traj_data)
-
+            #print(len(trajectory))
             new_i = len(trajectory) - 1
             
             if (trajectory[new_i][0][0] - trajectory[new_i][0][1]).Length < 0.01:
-                print('Line is to short at side A')
-                print('Remove this line and previus and creating new merged')
+                print('A line is to short at side A')
+                print('Removing this line and previus and creating new merged')
                 prev_line_point1_A = trajectory[new_i-1][0][0] 
                 this_line_point2_A = trajectory[new_i][0][1]
                 prev_line_point1_B = trajectory[new_i-1][1][0] 
@@ -1413,13 +1464,15 @@ def ShapeToHWSPath(selected_object, precision, reverse=False): #, inner_shape=Fa
                 new_line_point1_B = prev_line_point1_B
                 new_line_point2_B = this_line_point2_B
 
+                #TODO What to do if at first line?
                 trajectory.pop()
                 trajectory.pop()
+                    
                 new_data = [[new_line_point1_A,new_line_point2_A],[new_line_point1_B,new_line_point2_B]]
                 trajectory.append(new_data)
 
             elif (trajectory[new_i][1][0] - trajectory[new_i][1][1]).Length < 0.01:
-                print('Line is to short at side B')
+                print('A line is to short at side B')
                 print('Removing this line and previus and creating new merged')
                 prev_line_point1_A = trajectory[new_i-1][0][0] 
                 this_line_point2_A = trajectory[new_i][0][1]
@@ -1431,8 +1484,10 @@ def ShapeToHWSPath(selected_object, precision, reverse=False): #, inner_shape=Fa
                 new_line_point1_B = prev_line_point1_B
                 new_line_point2_B = this_line_point2_B
                 
+                #TODO What to do if at first line?
                 trajectory.pop()
                 trajectory.pop()
+
                 new_data = [[new_line_point1_A,new_line_point2_A],[new_line_point1_B,new_line_point2_B]]
                 trajectory.append(new_data) 
 
@@ -1450,8 +1505,18 @@ def ShapeToHWSPath(selected_object, precision, reverse=False): #, inner_shape=Fa
         #foam = ["Default", 1.6, 4.0, 1.9, 75] #[0, 'EXP Wire 0.5', True, [4.5, 20], [2, 20], 0.6, 0.8]
         
         foam =  json.JSONDecoder().decode(foam_cfg[foam_index])
+        try:
+            trajectory, part_AB_length = addKerf2Faces(trajectory, selected_object, inner_part_index, foam, is_inner_part)
+        except:
+            FreeCAD.Console.PrintMessage('error when adding kerf, trying with zero kerf')
+            zero_kerf_foam = [foam[0],0,foam[2],0,foam[4]]
+            try:
+                trajectory, part_AB_length = addKerf2Faces(trajectory, selected_object, inner_part_index, zero_kerf_foam, is_inner_part)
+                FreeCAD.Console.PrintMessage('created path with 0 kerf')
+                FreeCAD.Console.PrintMessage('this is often caused by vertexes too close together')
+            except:
+                FreeCAD.Console.PrintMessage('error, can\'t create path')
 
-        trajectory, part_AB_length = addKerf2Faces(trajectory, selected_object, inner_part_index, foam, is_inner_part)
         
         # ------------------------------------------------------------------------ 3
         # trajectory structure
@@ -1617,6 +1682,7 @@ def writeGCodeFile(wirepath, directory, G93):
 
     #get selected foam type 
     heat, speed  = HWS_Foam.getFoamProperties(FreeCAD.ActiveDocument.WirePath)
+    base = FreeCAD.ActiveDocument.Base
 
     for i in range(len(wirepath[0])):
 
@@ -1644,7 +1710,25 @@ def writeGCodeFile(wirepath, directory, G93):
             print("Waring "+axis_name[2]+" is out of range", tr_B[0])
         if tr_B[1] > HWS_Machine.YLength:
             print("Waring "+axis_name[3]+" is out of range", tr_B[1])
+        
+        
+        if i < len(wirepath[0]) - 1:
+            #print(i, tr_A, tr_B)
+            line = Part.makeLine(tr_A, tr_B)
+            s1 = line
+            s2 = base.Shape
 
+            cs = s1.common(s2)
+        
+            if cs.Vertexes:
+                print("Warning, found intersection point with base plate")
+                """
+                for v in cs.Vertexes:
+                    print("intersection point : ", v.Point)
+                else:
+                    print("can't find an intersection point")
+                """
+       
         if not(G93) and wirepath[2][i][3] != wirepath[2][i - 1][3] and i > 0:
             h = 'M3 S' + str(heat) + '\n'
             f = 'G1 F '+str(speed) + '\n'
